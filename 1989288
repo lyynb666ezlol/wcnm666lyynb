@@ -1,0 +1,189 @@
+
+local plr = game:GetService("Players")
+local lp = plr.LocalPlayer
+local http = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+local TeleportService = game:GetService("TeleportService")
+
+-- 存储符合条件的服务器列表
+local servers = {}
+
+-- 向Roblox API发送请求获取服务器列表
+local function fetchServerList()
+    local url = string.format("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100", game.PlaceId)
+    local req, err = http({
+        Url = url
+    })
+    
+    if not req or req.StatusCode ~= 200 then
+        warn("Failed to fetch server list:", err or "Unknown error")
+        warn("URL used:", url)
+        warn("Status Code:", req and req.StatusCode or "N/A")
+        return false
+    end
+    
+    local success, body = pcall(function()
+        return game:GetService("HttpService"):JSONDecode(req.Body)
+    end)
+    
+    if not success or not body or not body.data then
+        warn("Invalid response from API:", req.Body)
+        return false
+    end
+    
+    -- 清空旧服务器列表
+    servers = {}
+    
+    for _, v in ipairs(body.data) do
+        if v.playing < v.maxPlayers and v.id ~= game.JobId then
+            table.insert(servers, v)
+        end
+    end
+    
+    return true
+end
+
+-- 找到玩家最少的服务器
+local function findLeastPopulatedServer()
+    if #servers == 0 then
+        warn("No available servers found.")
+        return nil
+    end
+    
+    local leastPopulatedServer = servers[1]
+    for _, v in ipairs(servers) do
+        if v.playing < leastPopulatedServer.playing then
+            leastPopulatedServer = v
+        end
+    end
+    
+    return leastPopulatedServer.id
+end
+
+-- 处理换服
+local function teleportToServer(serverId)
+    local success, err = pcall(function()
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, serverId, lp)
+    end)
+    
+    if not success then
+        warn("Teleport failed:", err)
+        return false
+    end
+    return true
+end
+
+-- 主逻辑
+local function main()
+    if not fetchServerList() then
+        warn("Failed to fetch server list. Will retry later.")
+        return false
+    end
+    
+    if #servers == 0 then
+        warn("No available servers found.")
+        return false
+    end
+    
+    warn("Available servers count:", #servers)
+    local targetServerId = findLeastPopulatedServer()
+    
+    if not targetServerId then
+        warn("No suitable server found.")
+        return false
+    end
+    
+    warn("Attempting to teleport to server:", targetServerId)
+    return teleportToServer(targetServerId)
+end
+
+-- 自动执行主逻辑
+local function autoTeleport()
+    while true do
+        warn("Starting server check...")
+        
+        local success = main()
+        if success then
+            warn("Teleport initiated. Waiting for completion...")
+            -- 等待足够时间让传送完成
+            wait(30)
+        else
+            warn("Teleport not initiated. Will retry in 15 seconds...")
+            wait(15)
+        end
+    end
+end
+
+-- 获取玩家服务
+local plr = game:GetService("Players") 
+-- 获取本地玩家
+local lp = plr.LocalPlayer 
+-- 获取玩家角色
+local cha = lp.Character 
+-- 获取角色的人形组件
+local hum = cha.Humanoid 
+-- 获取角色的根部位
+local humd = cha.HumanoidRootPart 
+
+-- 定义传送函数
+local function tp(pos)
+    -- 将角色传送到指定位置
+    humd.CFrame = pos
+end
+
+-- 定义获取部件和点击检测器的函数
+local function getprandde(newpart)
+    local part, del -- part: 部件对象, del: 点击检测器
+    -- 遍历物品的所有子对象
+    for i, v in next, newpart:GetDescendants() do
+        if v.ClassName == 'ClickDetector' then
+            del = v -- 存储点击检测器
+        elseif v.ClassName == 'Part' then
+            part = v -- 存储部件对象
+        end
+    end
+    return part, del
+end
+
+-- 模拟按下W键1秒（可能是为了激活某些机制）
+game:GetService("VirtualInputManager"):SendKeyEvent(true, "W", false, game)
+wait(1)
+game:GetService("VirtualInputManager"):SendKeyEvent(false, "W", false, game)
+        
+wait(2)--刷新
+-- 定义拾取物品的函数
+local function getitem(item)
+    -- 获取物品的部件和点击检测器
+    local part, delic = getprandde(item)
+    if part then -- 如果找到有效部件
+        local count = 0 -- 尝试次数计数器
+        -- 传送到物品上方5单位处
+        tp(part.CFrame + Vector3.new(0, 5, 0))
+        repeat
+            task.wait(.2)
+            count = count + 1
+            -- 模拟按下E键（拾取动作）
+            game:GetService("VirtualInputManager"):SendKeyEvent(true, "E", false, game)
+            wait(1)
+            game:GetService("VirtualInputManager"):SendKeyEvent(false, "E", false, game)
+        until item.Parent == nil or count > 10 -- 直到物品被拾取或尝试超过10次
+        task.wait()
+    end
+end
+
+    for i, v in next, workspace.Game.Entities.ItemPickup:GetChildren() do
+        -- 检查物品尺寸是否符合特定条件（2.684725046157837, 2.196493148803711, 2.5559489727020264）
+        if v:FindFirstChildOfClass('Part', true).Size ==
+            Vector3.new(2.684725046157837, 2.196493148803711, 2.5559489727020264) then
+            getitem(v) -- 尝试拾取该物品
+            task.wait()
+        end
+    end
+    game:GetService("StarterGui"):SetCore("SendNotification",{
+	    Title = "💎lyy自动拾取印钞机💎";
+	    Text = "赞助者 雾霾 霽 冉 Fly 华秋 pico 騹杦 我的恩人:🔮残小雪🔮";
+	    Duration = 5;
+		
+        })
+        
+wait(2)--换服务器间隔
+autoTeleport()
